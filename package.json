@@ -1,0 +1,35 @@
+{
+  "name": "cellarscope",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ChatGPT Apps SDK MCP app for exploring EU Cellar data with bounded SPARQL.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SebastianBoehler/cellarscope.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SebastianBoehler/cellarscope/issues"
+  },
+  "homepage": "https://github.com/SebastianBoehler/cellarscope#readme",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/src/index.js",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "test:unit": "npm run build && node --test dist/tests/query-validation.test.js",
+    "test:live": "npm run build && node --test dist/tests/cellar-live.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "esbuild": "^0.25.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
