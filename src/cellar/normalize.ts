@@ -3,9 +3,10 @@ import type { CellarQueryResult, FlatRow, GraphEdge, GraphNode, QueryResultKind 
 const SOURCE_KEYS = ["source", "work", "from", "uri", "subject"];
 const TARGET_KEYS = ["target", "cited_work", "related", "to", "object"];
 const LABEL_KEYS = ["relation", "predicate", "edge", "type"];
+const SOURCE_LABEL_KEYS = ["source_title", "source_label", "source_celex", "title", "celex"];
+const TARGET_LABEL_KEYS = ["target_title", "cited_title", "target_label", "target_celex", "cited_celex"];
 
 export function buildQueryResult(args: {
-  purpose: string;
   query: string;
   resultKind: QueryResultKind;
   rows: FlatRow[];
@@ -14,6 +15,7 @@ export function buildQueryResult(args: {
   const { nodes, edges } = normalizeGraph(args.rows);
   return {
     ...args,
+    title: args.resultKind === "network" ? "Cellar relation network" : "Cellar query result",
     rowCount: args.rows.length,
     nodes,
     edges,
@@ -29,8 +31,8 @@ export function normalizeGraph(rows: FlatRow[]): { nodes: GraphNode[]; edges: Gr
     const target = first(row, TARGET_KEYS);
     const label = first(row, LABEL_KEYS) ?? "RELATED";
 
-    if (source) addNode(nodeMap, source, row.title ?? row.source_label ?? source);
-    if (target) addNode(nodeMap, target, row.target_title ?? row.cited_title ?? row.target_label ?? target);
+    if (source) addNode(nodeMap, source, labelFor(row, source, SOURCE_LABEL_KEYS));
+    if (target) addNode(nodeMap, target, labelFor(row, target, TARGET_LABEL_KEYS));
     if (source && target) {
       const key = `${source}|${target}|${label}`;
       edgeMap.set(key, { source, target, label: shortLabel(label) });
@@ -58,6 +60,22 @@ function first(row: FlatRow, keys: string[]): string | undefined {
     if (row[key]) return row[key];
   }
   return undefined;
+}
+
+function labelFor(row: FlatRow, id: string, keys: string[]): string {
+  return first(row, keys) ?? resourceLabel(id);
+}
+
+function resourceLabel(value: string): string {
+  const celex = value.match(/\/celex\/([^/?#]+)/i)?.[1];
+  if (celex) return celex;
+
+  if (/^[0-9][0-9A-Z()]+$/.test(value)) return value;
+
+  const cellar = value.match(/\/cellar\/([^/?#]+)/i)?.[1];
+  if (cellar) return `Cellar ${cellar.slice(0, 8)}`;
+
+  return value.replace(/^.*[#/]/, "") || value;
 }
 
 function kindFor(id: string): string {

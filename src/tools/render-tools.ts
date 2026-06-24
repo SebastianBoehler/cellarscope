@@ -2,6 +2,7 @@ import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
+import { normalizeGraph } from "../cellar/normalize.js";
 import { readOnlyAnnotations, runTool, textJson } from "../tool-runtime.js";
 import { widgetUri } from "../widget-resources.js";
 
@@ -21,14 +22,13 @@ const edgeSchema = z.object({
 export function registerRenderTools(server: McpServer) {
   registerAppTool(
     server,
-    "render_cellar_explorer",
+    "render_cellar_result",
     {
-      title: "Render Cellar explorer",
+      title: "Render Cellar result",
       description:
-        "Use this after search, fetch, or run_cellar_sparql when the user wants an interactive Cellar table, card list, timeline, or one-hop network map.",
+        "Use this after run_cellar_sparql to show the result as an interactive table or graph. Prefer network when rows or normalized nodes include source, target, and relation.",
       inputSchema: {
-        view: z.enum(["table", "network", "timeline", "cards"]),
-        purpose: z.string().optional(),
+        view: z.enum(["table", "network"]),
         query: z.string().optional(),
         rows: z.array(rowSchema).default([]),
         variables: z.array(z.string()).default([]),
@@ -45,23 +45,26 @@ export function registerRenderTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
+        const inferred = args.view === "network" && !args.nodes.length && !args.edges.length
+          ? normalizeGraph(args.rows)
+          : { nodes: args.nodes, edges: args.edges };
         const structuredContent = {
           view: args.view,
-          purpose: args.purpose ?? "Explore Cellar results",
+          title: args.view === "network" ? "Cellar relation network" : "Cellar query result",
           query: args.query ?? "",
           rows: args.rows,
           variables: args.variables,
           rowCount: args.rows.length,
-          nodes: args.nodes,
-          edges: args.edges,
+          nodes: inferred.nodes,
+          edges: inferred.edges,
         };
         return {
           structuredContent,
           content: textJson({
             view: args.view,
             rowCount: args.rows.length,
-            nodes: args.nodes.length,
-            edges: args.edges.length,
+            nodes: inferred.nodes.length,
+            edges: inferred.edges.length,
           }),
           _meta: { explorer: structuredContent },
         };

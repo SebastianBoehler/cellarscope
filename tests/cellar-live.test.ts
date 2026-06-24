@@ -60,7 +60,6 @@ test("normalizes one-hop citation network bindings", async () => {
   `, 10);
   const { rows, variables } = await runSparql(query);
   const result = buildQueryResult({
-    purpose: "GDPR citation neighborhood",
     query,
     resultKind: "network",
     rows,

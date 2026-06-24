@@ -5,19 +5,16 @@ import { normalizeState } from "./utils";
 
 const root = document.getElementById("root");
 let state: ExplorerState = normalizeState(initialExplorerState() ?? window.openai?.widgetState);
+let userInteracted = false;
 
-initBridge((result: ToolResult) => {
+initBridge((result: ToolResult, source) => {
   const next = result?._meta?.explorer ?? result?.structuredContent;
+  if (source === "globals" && userInteracted) return;
   if (next && typeof next === "object") update(next as Partial<ExplorerState>);
 });
 
 function update(next: Partial<ExplorerState>) {
   state = normalizeState({ ...state, ...next });
-  window.openai?.setWidgetState?.({
-    view: state.view,
-    purpose: state.purpose,
-    query: state.query,
-  });
   render();
 }
 
@@ -29,9 +26,8 @@ async function rerunQuery() {
   try {
     const result = await callTool("run_cellar_sparql", {
       query,
-      purpose: state.purpose,
       maxRows: 50,
-      resultKind: state.view === "network" ? "network" : state.view === "timeline" ? "timeline" : "records",
+      resultKind: state.view === "network" ? "network" : "records",
     });
     if (result.structuredContent) update(result.structuredContent);
   } catch (error) {
@@ -41,23 +37,50 @@ async function rerunQuery() {
 
 function render() {
   if (!root) return;
+  root.className = state.expanded ? "shell is-expanded" : "shell";
   root.innerHTML = renderExplorer(state);
-  bindActions();
-  window.openai?.notifyIntrinsicHeight?.(document.body.getBoundingClientRect().height);
+  try {
+    window.openai?.notifyIntrinsicHeight?.(document.body.getBoundingClientRect().height);
+  } catch {
+    // Intrinsic height notifications are best-effort host hints.
+  }
 }
 
-function bindActions() {
-  root?.querySelectorAll<HTMLButtonElement>("[data-view]").forEach((button) => {
-    button.addEventListener("click", () => update({ view: button.dataset.view as ViewMode }));
-  });
-  root?.querySelector<HTMLButtonElement>('[data-action="run"]')?.addEventListener("click", () => void rerunQuery());
-  root?.querySelector<HTMLButtonElement>('[data-action="fullscreen"]')?.addEventListener("click", () => {
-    void window.openai?.requestDisplayMode?.({ mode: "fullscreen" });
-  });
-  root?.querySelectorAll<HTMLElement>("[data-open]").forEach((element) => {
-    element.addEventListener("click", () => void openUrl(element.dataset.open ?? ""));
-  });
-}
+root?.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+
+  const viewButton = target.closest<HTMLButtonElement>("[data-view]");
+  if (viewButton) {
+    userInteracted = true;
+    update({ view: viewButton.dataset.view as ViewMode });
+    return;
+  }
+
+  const actionButton = target.closest<HTMLButtonElement>("[data-action]");
+  if (actionButton?.dataset.action === "run") {
+    userInteracted = true;
+    void rerunQuery();
+    return;
+  }
+  if (actionButton?.dataset.action === "expand") {
+    userInteracted = true;
+    const expanded = !state.expanded;
+    update({ expanded });
+    void window.openai?.requestDisplayMode?.({ mode: expanded ? "fullscreen" : "inline" }).catch(() => undefined);
+    return;
+  }
+
+  const openTarget = target.closest<HTMLElement>("[data-open]");
+  if (openTarget) void openUrl(openTarget.dataset.open ?? "");
+});
+
+root?.addEventListener("change", (event) => {
+  const target = event.target;
+  if (target instanceof HTMLTextAreaElement && target.id === "sparql") {
+    update({ query: target.value });
+  }
+});
 
 async function openUrl(url: string) {
   if (!url) return;

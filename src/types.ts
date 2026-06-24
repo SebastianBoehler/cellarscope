@@ -27,12 +27,12 @@ export type GraphEdge = {
   label: string;
 };
 
-export type QueryView = "table" | "network" | "timeline" | "cards";
+export type QueryView = "table" | "network";
 
-export type QueryResultKind = "records" | "network" | "timeline";
+export type QueryResultKind = "records" | "network";
 
 export type CellarQueryResult = {
-  purpose: string;
+  title: string;
   query: string;
   resultKind: QueryResultKind;
   rows: FlatRow[];

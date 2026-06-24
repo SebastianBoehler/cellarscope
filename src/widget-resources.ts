@@ -15,7 +15,7 @@ const projectRoot = resolve(__dirname, "../..");
 const widgetJs = readFileSync(join(projectRoot, "web/dist/widget.js"), "utf8");
 const widgetCss = readFileSync(join(projectRoot, "web/dist/widget.css"), "utf8");
 
-export const widgetUri = "ui://cellarscope/explorer-v2.html";
+export const widgetUri = "ui://cellarscope/demo-v10.html";
 
 export function registerWidgetResources(server: McpServer) {
   registerAppResource(server, "cellarscope-explorer", widgetUri, {}, async () => ({
@@ -44,7 +44,7 @@ export function registerWidgetResources(server: McpServer) {
             },
           },
           "openai/widgetDescription":
-            "Shows an interactive EU Cellar legal-data explorer with tables, cards, timelines, and relation maps.",
+            "Shows Cellar SPARQL results as a compact table or relation graph.",
         },
       },
     ],

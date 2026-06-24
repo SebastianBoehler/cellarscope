@@ -2,7 +2,7 @@
 
 ## Scope
 
-CellarScope is a read-only ChatGPT Apps SDK/MCP app for exploring EU Cellar RDF data through live SPARQL. Keep v1 focused on public Cellar access: no Neo4j migration, no local dump ingestion, no vector index, no write actions, and no auth unless saved/private features are added later.
+CellarScope is a read-only ChatGPT Apps SDK/MCP demo for showing that agents can write working SPARQL against EU Cellar and visualize the result as a table or graph. Keep v1 focused: no Neo4j migration, no local dump ingestion, no vector index, no write actions, no auth, and no broad product features unless explicitly requested.
 
 ## Setup
 
@@ -27,13 +27,13 @@ Then add the HTTPS MCP URL in ChatGPT settings under Apps/Connectors developer m
 
 ## ChatGPT App Testing
 
-Use `CellarScope v2` or any freshly created dev app whose tool metadata advertises:
+Use any freshly created dev app whose tool metadata advertises:
 
 ```text
-ui://cellarscope/explorer-v2.html
+ui://cellarscope/demo-v10.html
 ```
 
-If ChatGPT keeps showing `explorer-v1.html`, the dev connector metadata is stale. Disconnect it and create a fresh dev app entry; the refresh button may not update the output template.
+If ChatGPT keeps showing an older `ui://cellarscope/...` URI, the dev connector metadata is stale. Disconnect it and create a fresh dev app entry; the refresh button may not update the output template.
 
 Minimum checks:
 
@@ -45,10 +45,9 @@ npm test
 
 In ChatGPT, attach the app and test:
 
-1. `fetch` with CELEX `32016R0679`.
-2. `run_cellar_sparql` with a bounded `SELECT`.
-3. `render_cellar_explorer` with a small normalized network payload.
-4. A live normalized GDPR citation query rendered as a network.
+1. `get_cellar_sparql_guide`.
+2. `run_cellar_sparql` with a model-written bounded `SELECT`.
+3. `render_cellar_result` with `view=network`.
 
 Known-good live network query:
 

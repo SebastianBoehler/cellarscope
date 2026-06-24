@@ -8,7 +8,9 @@ type PendingRequest = {
 let rpcId = 0;
 const pending = new Map<number, PendingRequest>();
 
-export function initBridge(onToolResult: (result: ToolResult) => void) {
+export type BridgeSource = "tool-result" | "globals";
+
+export function initBridge(onToolResult: (result: ToolResult, source: BridgeSource) => void) {
   window.addEventListener(
     "message",
     (event) => {
@@ -25,7 +27,7 @@ export function initBridge(onToolResult: (result: ToolResult) => void) {
       }
 
       if (message.method === "ui/notifications/tool-result") {
-        onToolResult(message.params as ToolResult);
+        onToolResult(message.params as ToolResult, "tool-result");
       }
     },
     { passive: true },
@@ -36,10 +38,13 @@ export function initBridge(onToolResult: (result: ToolResult) => void) {
     (event) => {
       const detail = (event as CustomEvent<{ globals?: Window["openai"] }>).detail;
       const globals = detail?.globals ?? window.openai;
-      onToolResult({
-        structuredContent: initialExplorerState(globals),
-        _meta: globals?.toolResponseMetadata,
-      });
+      onToolResult(
+        {
+          structuredContent: initialExplorerState(globals),
+          _meta: globals?.toolResponseMetadata,
+        },
+        "globals",
+      );
     },
     { passive: true },
   );

@@ -3,13 +3,14 @@ import type { ExplorerState, GraphNode } from "./types";
 export function normalizeState(input?: Partial<ExplorerState>): ExplorerState {
   return {
     view: input?.view ?? "table",
-    purpose: input?.purpose ?? "Explore Cellar results",
+    title: input?.title ?? "Cellar query result",
     query: input?.query ?? sampleQuery(),
     rows: input?.rows ?? [],
     variables: input?.variables ?? Object.keys(input?.rows?.[0] ?? {}),
     rowCount: input?.rowCount ?? input?.rows?.length ?? 0,
     nodes: input?.nodes ?? [],
     edges: input?.edges ?? [],
+    expanded: input?.expanded ?? false,
     error: input?.error,
   };
 }
@@ -33,9 +34,12 @@ export function layoutNodes(nodes: GraphNode[], width: number, height: number) {
   const centerY = height / 2;
   const radius = Math.min(width, height) * 0.36;
   const map = new Map<string, { x: number; y: number }>();
+  const [anchor, ...rest] = nodes;
 
-  nodes.forEach((node, index) => {
-    const angle = (Math.PI * 2 * index) / Math.max(nodes.length, 1);
+  if (anchor) map.set(anchor.id, { x: centerX, y: centerY });
+
+  rest.forEach((node, index) => {
+    const angle = (Math.PI * 2 * index) / Math.max(rest.length, 1);
     map.set(node.id, {
       x: Math.round(centerX + Math.cos(angle) * radius),
       y: Math.round(centerY + Math.sin(angle) * radius),

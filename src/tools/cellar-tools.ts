@@ -8,16 +8,16 @@ import { runSparql } from "../cellar/sparql-client.js";
 import { getSchemaHints } from "../cellar/schema-hints.js";
 import { readOnlyAnnotations, runTool, textJson } from "../tool-runtime.js";
 
-const resultKindSchema = z.enum(["records", "network", "timeline"]);
+const resultKindSchema = z.enum(["records", "network"]);
 
 export function registerCellarTools(server: McpServer) {
   registerAppTool(
     server,
-    "get_cellar_schema_hints",
+    "get_cellar_sparql_guide",
     {
-      title: "Get Cellar schema hints",
+      title: "Get Cellar SPARQL guide",
       description:
-        "Use this when the user wants to write or understand Cellar SPARQL. Returns compact CDM, WEMI, EuroVoc, and relation guidance.",
+        "Use this first for Cellar questions. It teaches the model the compact CDM/WEMI predicates and known-good SPARQL shapes it should use before writing a SELECT query.",
       inputSchema: {},
       annotations: readOnlyAnnotations(),
       _meta: {},
@@ -35,10 +35,9 @@ export function registerCellarTools(server: McpServer) {
     {
       title: "Run bounded Cellar SPARQL",
       description:
-        "Use this when a templated search is not enough and the user needs a read-only SELECT query against EU Cellar metadata. Call get_cellar_schema_hints first for predicate guidance.",
+        "Use this after get_cellar_sparql_guide. Write the SPARQL query yourself, pass it in query, and keep it read-only, bounded, and suitable for rendering as records or a source/target/relation network.",
       inputSchema: {
         query: z.string().min(1),
-        purpose: z.string().min(1),
         maxRows: z.number().int().min(1).max(200).optional(),
         resultKind: resultKindSchema.optional(),
       },
@@ -48,12 +47,11 @@ export function registerCellarTools(server: McpServer) {
         "openai/toolInvocation/invoked": "Cellar results ready",
       },
     },
-    async ({ query, purpose, maxRows, resultKind = "records" }) =>
+    async ({ query, maxRows, resultKind = "records" }) =>
       runTool(async () => {
         const safeQuery = validateReadOnlySelect(query, maxRows);
         const { rows, variables } = await runSparql(safeQuery);
         const structuredContent = buildQueryResult({
-          purpose,
           query: safeQuery,
           resultKind,
           rows,
@@ -62,7 +60,6 @@ export function registerCellarTools(server: McpServer) {
         return {
           structuredContent,
           content: textJson({
-            purpose,
             rowCount: structuredContent.rowCount,
             variables,
             nodes: structuredContent.nodes.length,

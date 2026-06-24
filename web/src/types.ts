@@ -1,18 +1,19 @@
 export type FlatRow = Record<string, string>;
-export type ViewMode = "table" | "cards" | "timeline" | "network";
+export type ViewMode = "table" | "network";
 
 export type GraphNode = { id: string; label: string; kind: string; url?: string };
 export type GraphEdge = { source: string; target: string; label: string };
 
 export type ExplorerState = {
   view: ViewMode;
-  purpose: string;
+  title: string;
   query: string;
   rows: FlatRow[];
   variables: string[];
   rowCount: number;
   nodes: GraphNode[];
   edges: GraphEdge[];
+  expanded?: boolean;
   error?: string;
 };
 

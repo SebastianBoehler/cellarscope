@@ -3,10 +3,13 @@ import { escapeHtml, formatCell, layoutNodes, shorten, unique } from "./utils";
 
 export function renderExplorer(state: ExplorerState) {
   return `
-    <section class="topbar">
-      <div>
-        <p class="eyebrow">CellarScope</p>
-        <h1>${escapeHtml(state.purpose)}</h1>
+    <section class="summary">
+      <div class="summary-title">
+        <span class="mark" aria-hidden="true">C</span>
+        <div>
+          <p class="eyebrow">CellarScope</p>
+          <h1>${escapeHtml(state.title)}</h1>
+        </div>
       </div>
       <div class="stats">
         <span>${state.rowCount} rows</span>
@@ -15,22 +18,22 @@ export function renderExplorer(state: ExplorerState) {
       </div>
     </section>
     ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
-    <section class="query-panel">
+    <div class="toolbar">
+      <nav class="tabs" aria-label="Views">
+        ${tab(state, "table", "Table")}
+        ${tab(state, "network", "Network")}
+      </nav>
+      <button class="ghost" data-action="expand">${state.expanded ? "Collapse" : "Expand"}</button>
+    </div>
+    <section class="query-panel" aria-label="Generated SPARQL">
       <details>
-        <summary>SPARQL</summary>
+        <summary><span>Generated SPARQL</span><span>${state.query ? "available" : "empty"}</span></summary>
         <textarea id="sparql" spellcheck="false">${escapeHtml(state.query)}</textarea>
         <div class="query-actions">
           <button data-action="run">Run</button>
-          <button data-action="fullscreen">Fullscreen</button>
         </div>
       </details>
     </section>
-    <nav class="tabs" aria-label="Views">
-      ${tab(state, "table", "Table")}
-      ${tab(state, "cards", "Cards")}
-      ${tab(state, "timeline", "Timeline")}
-      ${tab(state, "network", "Network")}
-    </nav>
     <section class="workspace">
       <div class="main-pane">${renderMain(state)}</div>
       <aside class="inspector">${renderInspector(state)}</aside>
@@ -43,14 +46,12 @@ function tab(state: ExplorerState, view: ViewMode, label: string) {
 }
 
 function renderMain(state: ExplorerState) {
-  if (state.view === "cards") return renderCards(state);
-  if (state.view === "timeline") return renderTimeline(state);
   if (state.view === "network") return renderNetwork(state);
   return renderTable(state);
 }
 
 function renderTable(state: ExplorerState) {
-  const vars = state.variables.length ? state.variables : Object.keys(state.rows[0] ?? {});
+  const vars = (state.variables.length ? state.variables : Object.keys(state.rows[0] ?? {})).slice(0, 8);
   if (!state.rows.length) return `<div class="empty">No rows yet.</div>`;
   return `<div class="table-wrap"><table><thead><tr>${vars
     .map((key) => `<th>${escapeHtml(key)}</th>`)
@@ -59,54 +60,44 @@ function renderTable(state: ExplorerState) {
     .join("")}</tbody></table></div>`;
 }
 
-function renderCards(state: ExplorerState) {
-  if (!state.rows.length) return `<div class="empty">No records yet.</div>`;
-  return `<div class="cards">${state.rows
-    .slice(0, 30)
-    .map((row) => {
-      const title = row.title ?? row.celex ?? row.work ?? row.uri ?? "Cellar record";
-      const date = row.date ?? row.workdatedoc ?? "";
-      const href = row.work ?? row.uri ?? row.item ?? "";
-      return `<article class="card">
-        <h2>${escapeHtml(title)}</h2>
-        <p>${escapeHtml([row.celex, date].filter(Boolean).join(" | "))}</p>
-        ${href ? `<button data-open="${escapeHtml(href)}">Open source</button>` : ""}
-      </article>`;
-    })
-    .join("")}</div>`;
-}
-
-function renderTimeline(state: ExplorerState) {
-  const dated = state.rows
-    .filter((row) => row.date || row.workdatedoc)
-    .sort((a, b) => String(a.date ?? a.workdatedoc).localeCompare(String(b.date ?? b.workdatedoc)));
-  if (!dated.length) return `<div class="empty">No date fields in this result.</div>`;
-  return `<ol class="timeline">${dated
-    .map((row) => `<li><time>${escapeHtml(row.date ?? row.workdatedoc)}</time><span>${escapeHtml(row.title ?? row.celex ?? row.work ?? "Cellar record")}</span></li>`)
-    .join("")}</ol>`;
-}
-
 function renderNetwork(state: ExplorerState) {
   if (!state.nodes.length) return `<div class="empty">No source/target-style bindings found.</div>`;
   const width = 760;
-  const height = 460;
+  const height = 430;
   const positions = layoutNodes(state.nodes, width, height);
-  return `<svg class="network" viewBox="0 0 ${width} ${height}" role="img">
+  const showEdgeLabels = state.edges.length <= 12;
+  const showNodeLabels = state.nodes.length <= 14;
+  return `<svg class="network" viewBox="0 0 ${width} ${height}" role="img" aria-label="Cellar relation network">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z"></path>
+      </marker>
+    </defs>
     ${state.edges
       .map((edge) => {
         const a = positions.get(edge.source);
         const b = positions.get(edge.target);
         if (!a || !b) return "";
-        return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"><title>${escapeHtml(edge.label)}</title></line>`;
+        const label = showEdgeLabels
+          ? `<text x="${Math.round((a.x + b.x) / 2)}" y="${Math.round((a.y + b.y) / 2)}">${escapeHtml(edge.label)}</text>`
+          : "";
+        return `<g class="edge">
+          <line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"><title>${escapeHtml(edge.label)}</title></line>
+          ${label}
+        </g>`;
       })
       .join("")}
     ${state.nodes
-      .map((node) => {
+      .map((node, index) => {
         const point = positions.get(node.id);
         if (!point) return "";
-        return `<g class="node" data-open="${escapeHtml(node.url ?? "")}">
+        const label = showNodeLabels || index === 0
+          ? `<text x="${point.x + 12}" y="${point.y + 4}">${escapeHtml(shorten(node.label, 56))}</text>`
+          : "";
+        return `<g class="node ${escapeHtml(node.kind)} ${index === 0 ? "anchor" : ""}" data-open="${escapeHtml(node.url ?? "")}">
           <circle cx="${point.x}" cy="${point.y}" r="9"></circle>
-          <text x="${point.x + 12}" y="${point.y + 4}">${escapeHtml(node.label)}</text>
+          <title>${escapeHtml(node.label)}</title>
+          ${label}
         </g>`;
       })
       .join("")}
@@ -115,17 +106,21 @@ function renderNetwork(state: ExplorerState) {
 
 function renderInspector(state: ExplorerState) {
   const vars = state.variables.length ? state.variables : Object.keys(state.rows[0] ?? {});
-  return `<h2>Inspector</h2>
+  const relations = unique(state.edges.map((edge) => edge.label));
+  return `<h2>Context</h2>
     <dl>
       <dt>View</dt><dd>${escapeHtml(state.view)}</dd>
       <dt>Variables</dt><dd>${escapeHtml(vars.join(", ") || "none")}</dd>
-      <dt>Relations</dt><dd>${escapeHtml(unique(state.edges.map((edge) => edge.label)).join(", ") || "none")}</dd>
+      <dt>Relations</dt><dd>${escapeHtml(relations.join(", ") || "none")}</dd>
     </dl>
     <div class="links">${renderLinks(state)}</div>`;
 }
 
 function renderLinks(state: ExplorerState) {
-  const urls = unique(state.rows.flatMap((row) => Object.values(row).filter((value) => /^https?:\/\//.test(value)))).slice(0, 10);
+  const urls = unique([
+    ...state.rows.flatMap((row) => Object.values(row).filter((value) => /^https?:\/\//.test(value))),
+    ...state.nodes.flatMap((node) => node.url ?? []),
+  ]).slice(0, 8);
   if (!urls.length) return "";
   return `<h3>Sources</h3>${urls.map((url) => `<button data-open="${escapeHtml(url)}">${escapeHtml(shorten(url, 72))}</button>`).join("")}`;
 }
